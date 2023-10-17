@@ -86,3 +86,6 @@ SNS - You may own a Topic, Subscribers will subscribe to that topic. When you pu
 10. **What is the AWS Lambda destination for Amazon SNS, and how can it be used?**
 
     *Answer:* The AWS Lambda destination for Amazon SNS allows you to invoke Lambda functions in response to SNS messages. It is useful for processing and acting upon notifications received via SNS.
+    
+12. **What was your batch size in SQS?**
+13. **What was your DLQ Size in your project?** 
