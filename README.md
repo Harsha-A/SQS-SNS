@@ -3,6 +3,8 @@ SQS &amp; SNS Interview Questions
 
 SNS - You may own a Topic, Subscribers will subscribe to that topic. When you push messages to that topics, the subscribers will receive it.
 
+https://www.youtube.com/watch?v=_gpOHGnoq_o
+
 **Amazon SQS Questions:**
 
 1. **What is Amazon SQS, and how does it work?**
