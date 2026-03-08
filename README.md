@@ -47,6 +47,651 @@ https://www.youtube.com/watch?v=_gpOHGnoq_o
 
     *Answer:* "ApproximateNumberOfMessages" represents the number of messages that are available in the queue for retrieval, while "ApproximateNumberOfMessagesNotVisible" represents the number of messages currently being processed by consumers and not yet visible. These metrics help monitor the queue's status and health.
 
+---------------------------------
+
+Below is your content converted into a **clean FAANG-style interview Q&A study guide**. This format works well for **revision, flashcards, and mock interviews**.
+
+---
+
+# Amazon SQS — Advanced Interview Q&A (SDE-3 / Staff / Lead)
+
+---
+
+## 1. What delivery guarantee does Amazon SQS provide?
+
+**Answer:**
+
+Amazon SQS provides **at-least-once delivery**.
+
+This means:
+
+* A message will be delivered **at least once**
+* **Duplicate messages may occur**
+
+This happens because SQS stores messages **across multiple distributed servers for reliability**.
+
+Therefore, consumers must implement **idempotent processing**.
+
+Example architecture:
+
+```
+Order Service → SQS → Payment Processor
+```
+
+Duplicate handling logic:
+
+```
+Check if orderId already processed
+If yes → ignore
+Else → process payment
+```
+
+Common implementation strategies:
+
+* Idempotency keys
+* Redis cache
+* DynamoDB table storing processed message IDs
+
+---
+
+# Throughput and Scaling
+
+---
+
+## 2. What are the throughput limits of SQS?
+
+**Answer:**
+
+### Standard Queue
+
+Characteristics:
+
+* Nearly **unlimited throughput**
+* Messages may be **out of order**
+* Supports very high parallelism
+
+---
+
+### FIFO Queue
+
+Throughput limits:
+
+Without batching:
+
+```
+300 messages per second
+```
+
+With batching:
+
+```
+3000 messages per second
+```
+
+---
+
+## 3. How can FIFO queues scale while maintaining ordering?
+
+**Answer:**
+
+FIFO queues use **Message Groups**.
+
+Each group maintains ordering internally but can run **in parallel with other groups**.
+
+Example:
+
+```
+Group A → ordered
+Group B → ordered
+Group C → ordered
+```
+
+Workers can process groups **concurrently**, improving throughput.
+
+---
+
+# Message Lifecycle
+
+---
+
+## 4. What is the message retention period in SQS?
+
+**Answer:**
+
+Message retention determines how long messages remain in the queue if not processed.
+
+Range:
+
+```
+1 minute → 14 days
+```
+
+Default:
+
+```
+4 days
+```
+
+Common use cases:
+
+* Event replay
+* Recovery from consumer outages
+* Delayed processing
+
+---
+
+# Message Scheduling
+
+---
+
+## 5. What are Delay Queues in SQS?
+
+**Answer:**
+
+Delay queues postpone the delivery of messages to consumers.
+
+Example:
+
+```
+Send message
+Delay = 5 minutes
+Consumer receives message after 5 minutes
+```
+
+Maximum delay:
+
+```
+15 minutes
+```
+
+Typical use cases:
+
+* Retry mechanisms
+* Cooldown timers
+* Scheduled workflows
+
+Example:
+
+```
+User Signup
+      ↓
+Send Welcome Email after 10 minutes
+```
+
+---
+
+# Performance Optimization
+
+---
+
+## 6. What is message batching and why is it useful?
+
+**Answer:**
+
+Instead of sending messages individually, SQS allows **batch operations**.
+
+Example:
+
+```
+SendMessageBatch (10 messages)
+```
+
+Benefits:
+
+* Higher throughput
+* Lower API cost
+* Reduced network overhead
+
+Batch operations include:
+
+* SendMessageBatch
+* DeleteMessageBatch
+* ChangeMessageVisibilityBatch
+
+---
+
+# Failure Scenarios
+
+---
+
+## 7. What happens if visibility timeout is shorter than processing time?
+
+**Answer:**
+
+Scenario:
+
+```
+Worker receives message
+Processing time = 2 minutes
+Visibility timeout = 30 seconds
+```
+
+Result:
+
+* Message becomes visible again
+* Another worker picks it up
+* **Duplicate execution occurs**
+
+Solution:
+
+Extend visibility timeout dynamically.
+
+Example:
+
+```
+ChangeMessageVisibility
+```
+
+Or configure a longer visibility timeout.
+
+---
+
+# Reliability Mechanisms
+
+---
+
+## 8. What is a Redrive Policy in SQS?
+
+**Answer:**
+
+A Redrive Policy defines how messages move to a **Dead Letter Queue (DLQ)** after repeated failures.
+
+Example configuration:
+
+```
+maxReceiveCount = 5
+```
+
+Processing flow:
+
+```
+Attempt 1 → fail
+Attempt 2 → fail
+Attempt 3 → fail
+Attempt 4 → fail
+Attempt 5 → fail
+↓
+Message moved to DLQ
+```
+
+DLQs help with:
+
+* Debugging
+* Preventing infinite retries
+* Identifying poison messages
+
+---
+
+# Messaging Architecture
+
+---
+
+## 9. What is the difference between SQS and SNS?
+
+**Answer:**
+
+| Feature           | SQS                        | SNS                  |
+| ----------------- | -------------------------- | -------------------- |
+| Messaging pattern | Queue                      | Pub/Sub              |
+| Consumers         | Usually one consumer group | Multiple subscribers |
+| Ordering          | FIFO supported             | No ordering          |
+| Use case          | Task processing            | Event broadcasting   |
+
+Example architecture:
+
+```
+Order Service
+      ↓
+      SNS
+   /   |   \
+ SQS  SQS  Lambda
+Email Analytics Billing
+```
+
+SNS distributes events to multiple systems.
+
+---
+
+# Messaging Platforms
+
+---
+
+## 10. What is the difference between SQS and Kafka?
+
+**Answer:**
+
+| Feature    | SQS           | Kafka                    |
+| ---------- | ------------- | ------------------------ |
+| Management | Fully managed | Self-managed or MSK      |
+| Retention  | Up to 14 days | Configurable             |
+| Replay     | Limited       | Strong replay capability |
+| Ordering   | FIFO only     | Partition ordering       |
+| Throughput | Medium        | Extremely high           |
+
+Use **SQS** when:
+
+* Simple asynchronous processing
+* Serverless systems
+* AWS-native architecture
+
+Use **Kafka** when:
+
+* Event streaming platforms
+* Real-time analytics
+* Event sourcing systems
+
+---
+
+# Exactly-Once Processing
+
+---
+
+## 11. How can you achieve exactly-once processing with SQS?
+
+**Answer:**
+
+SQS itself only guarantees **at-least-once delivery**.
+
+Exactly-once behavior is achieved using **idempotent consumers**.
+
+Techniques include:
+
+### 1. Deduplication ID
+
+```
+MessageDeduplicationId
+```
+
+Used in FIFO queues.
+
+---
+
+### 2. Database uniqueness
+
+Example:
+
+```
+PRIMARY KEY(order_id)
+```
+
+Duplicate messages fail the insert operation.
+
+---
+
+### 3. Distributed locks
+
+Using systems like:
+
+* Redis
+* DynamoDB
+
+---
+
+# Serverless Architectures
+
+---
+
+## 12. How is SQS used with AWS Lambda?
+
+**Answer:**
+
+SQS commonly acts as a **buffer between services and Lambda workers**.
+
+Architecture:
+
+```
+API Gateway
+      ↓
+Lambda Producer
+      ↓
+SQS Queue
+      ↓
+Lambda Consumer
+      ↓
+Database
+```
+
+Benefits:
+
+* Smooth traffic spikes
+* Automatic retry handling
+* Serverless scalability
+
+---
+
+# Backpressure Handling
+
+---
+
+## 13. What happens if consumers are slower than producers?
+
+**Answer:**
+
+Queue size will increase, creating **backpressure**.
+
+Symptoms:
+
+* Increasing queue length
+* Older messages remaining unprocessed
+
+Solutions:
+
+* Auto-scale workers
+* Increase batch size
+* Increase consumer concurrency
+
+Key monitoring metrics:
+
+```
+ApproximateNumberOfMessagesVisible
+ApproximateAgeOfOldestMessage
+```
+
+---
+
+# Security
+
+---
+
+## 14. How is security handled in Amazon SQS?
+
+**Answer:**
+
+Security mechanisms include:
+
+1. **IAM Policies**
+
+Control which services can access queues.
+
+---
+
+2. **Queue Policies**
+
+Define access rules for producers and consumers.
+
+---
+
+3. **KMS Encryption**
+
+Encrypt messages at rest.
+
+---
+
+4. **VPC Endpoints**
+
+Secure access without traversing the public internet.
+
+Example:
+
+```
+Allow only OrderService to send messages
+```
+
+---
+
+# Cost Optimization
+
+---
+
+## 15. How can SQS costs be optimized?
+
+**Answer:**
+
+Common strategies:
+
+* Enable **long polling**
+* Use **message batching**
+* Reduce empty receives
+* Use **efficient worker scaling**
+
+These techniques reduce API calls and operational costs.
+
+---
+
+# System Design
+
+---
+
+## 16. How would you design a scalable email notification system using SQS?
+
+**Answer:**
+
+Architecture:
+
+```
+User Service
+      ↓
+      SQS Queue
+      ↓
+Email Worker Fleet
+      ↓
+SMTP Provider
+```
+
+Advantages:
+
+* Handles traffic spikes
+* Retry on failure
+* Decouples services
+
+---
+
+# Production Failure Modes
+
+---
+
+## 17. What are poison messages and how are they handled?
+
+**Answer:**
+
+Poison messages are messages that **always fail processing**.
+
+Handling approach:
+
+```
+Retry limited times
+↓
+Move to DLQ
+```
+
+Developers can inspect DLQ to debug failures.
+
+---
+
+## 18. What is a message storm and how can it be handled?
+
+**Answer:**
+
+A message storm occurs when producers send **extremely high message volume**.
+
+Solutions:
+
+* Rate limiting producers
+* Auto-scaling workers
+* Backpressure mechanisms
+
+---
+
+## 19. What happens when a queue backlog occurs?
+
+**Answer:**
+
+Queue backlog occurs when consumers cannot keep up.
+
+Solutions:
+
+* Increase worker fleet
+* Use batch processing
+* Increase concurrency
+
+---
+
+# Advanced Architecture
+
+---
+
+## 20. What is the SNS + SQS fan-out pattern?
+
+**Answer:**
+
+SNS can broadcast events to multiple SQS queues.
+
+Architecture:
+
+```
+Producer
+   ↓
+   SNS
+ /  |  \
+SQS SQS SQS
+ |   |   |
+Worker Worker Worker
+```
+
+Each system processes the event independently.
+
+This is widely used in **large event-driven systems**.
+
+---
+
+# Advanced Interview Question
+
+---
+
+## 21. How would you guarantee ordered processing while maintaining high throughput?
+
+**Answer:**
+
+Use **FIFO queues with Message Groups**.
+
+Example:
+
+```
+MessageGroupId = userId
+```
+
+Properties:
+
+* Ordering guaranteed within each user
+* Parallel processing across users
+* High overall throughput
+
+---
+
+# Important Adjacent Topics for FAANG Interviews
+
+You should also understand:
+
+* SQS vs EventBridge
+* SQS vs Kinesis
+* Lambda + SQS scaling
+* Distributed retries
+* Idempotency patterns
+* Saga pattern
+* Event-driven architecture
+
+
+---------------------------------
 **Amazon SNS Questions:**
 
 1. **What is Amazon SNS, and how does it differ from SQS?**
